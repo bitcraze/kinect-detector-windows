@@ -176,6 +176,9 @@ void CDepthBasics::Update()
 {
 	static float x=0, y=0, z=0, angle=0;
 	static char json[200];
+	static int detect_x = 200, detect_y = 150;
+	static bool detected = false;
+	static int window = -1;
 
     if (!m_pDepthFrameReader)
     {
@@ -248,14 +251,45 @@ void CDepthBasics::Update()
 		cv::imshow("depth", fDepthMap / 4500.0f);
 
 		cv::Mat th_display(fIrImage.size(), CV_8UC3, cv::Scalar(255, 255, 255));
+
+		cv::Rect roi;
+		if (detected) window = 100;
+		else if (window > 0) {
+			window += 25;
+			if (window > 300) window = -1;
+		}
+
+		if (detected || window > 0) {
+			int x = detect_x-window/2, y = detect_y-window/2;
+
+			x = max(min(x, fIrImage.size().width - (window+1)), 0);
+			y = max(min(y, fIrImage.size().height - (window+1)), 0);
+
+			roi = cv::Rect(x, y, window, window);
+
+			cv::rectangle(th_display, roi, cv::Scalar(1.0, 0.0, 0.0));
+		} else
+			roi = cv::Rect(0, 0, fIrImage.size().width, fIrImage.size().height);
+
+		cv::Mat ir_roi(fIrImage, roi);
+		cv::Mat th_roi(th_display, roi);
+
 		cf_instance cf;
-		detect_cfs(&fIrImage, &fDepthMap, &th_display, &cf);
+		detect_cfs(&ir_roi, &fDepthMap, &th_roi, &cf);
 
-
-
+		if (cf.found) {
+			cf.x += roi.x;
+			cf.y += roi.y;
+			cf.x_d += roi.x;
+			cf.y_d += roi.y;
+		}
 
 		//circle(th_display, depth_node, radius[pi[tip]], Scalar(150,150,150), 2);
 		if (cf.found == true && cf.x_d >= 0 && cf.x_d < 512 && cf.y_d >= 0 && cf.y_d < 424) {
+
+			detected = true;
+			detect_x = cf.x;
+			detect_y = cf.y;
 
 			DepthSpacePoint cfPoint;
 			CameraSpacePoint cfPos;
@@ -283,6 +317,12 @@ void CDepthBasics::Update()
 			cv::putText(th_display, coord, cv::Point(cf.x_d, cf.y_d - 40), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(100.0, 10.0, 250.0), 1, CV_AA);
 		}
 		else {
+			detected = false;
+
+			if (!_finite(x)) x = 0;
+			if (!_finite(y)) y = 0;
+			if (!_finite(z)) z = 0;
+
 			cout << "No CF found :-(" << endl;
 			// Send old stuff if nothing was found
 			sprintf(json, "{\"pos\": [%f, %f, %f], \"angle\": %f, \"detect\": false}", x, y, z, angle);
