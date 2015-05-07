@@ -294,7 +294,7 @@ void CDepthBasics::Update()
 			DepthSpacePoint cfPoint;
 			CameraSpacePoint cfPos;
 			//float cfDepth = fDepthMap.at<float>(cf.x_d, cf.y_d);
-			UINT16 cfDepth = *(depthBuffer + (int) cf.y_d * 512 + (int) cf.x_d);
+			UINT16 cfDepth = *(depthBuffer + (int) cf.y * 512 + (int) cf.x);
 			cfPoint.X = cf.x;
 			cfPoint.Y = cf.y;
 
@@ -305,8 +305,10 @@ void CDepthBasics::Update()
 			//get_depth_at_xy(static_cast<void*>(depth->data), &cf);
 			cout << "CF at " << cfPos.X << "x" << cfPos.Y << "x" << cfPos.Z << endl;
 			x = cfPos.X; y = cfPos.Y; z = cfPos.Z; angle = cf.angle;
-			sprintf(json, "{\"pos\": [%f, %f, %f], \"angle\": %f, \"detect\": true}", x, y, z, angle);
-			zmq_send(m_socket, json, strlen(json), ZMQ_NOBLOCK);
+			if (_finite(x) && _finite(y) && _finite(z)) {
+				sprintf(json, "{\"pos\": [%f, %f, %f], \"angle\": %f, \"detect\": true}", x, y, z, angle);
+				zmq_send(m_socket, json, strlen(json), ZMQ_NOBLOCK);
+			}
 
 			char coord[200];
 			sprintf(coord, "x[%.1f], y[%.1f], z[%f]", cfPos.X*1000, cfPos.Y*1000, cfPos.Z);

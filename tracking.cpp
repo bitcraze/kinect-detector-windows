@@ -17,6 +17,7 @@
 
 #define and &&
 
+#define NODEGROUP 4
 using namespace cv;
 using namespace std;
 
@@ -26,10 +27,11 @@ static int th_upper = 200000;
 //static int th_lower = 0;
 //static int th_upper = 200000;
 
+int ang_dist = 20;
 int group_min_distance = 0;
 int group_max_distance = 50;
-float group_min_radius = 0;
-float group_max_radius = 50;
+float group_min_radius = 1;
+float group_max_radius = 70;
 
 void threashold_ir(Mat * ir, int lower, int upper, Mat* th)
 {
@@ -51,6 +53,10 @@ bool check_angles(int a, int b)
 	return false;
 }
 
+int mydistance(Point2f a, Point2f b) {
+	return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
+
 void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 
 
@@ -62,10 +68,10 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 
 	int dilation_size = 1;
 	Mat element = getStructuringElement(MORPH_ELLIPSE,
-		Size(2 * dilation_size + 1, 2 * dilation_size + 1),
+		Size(dilation_size + 1, dilation_size + 1),
 		Point(dilation_size, dilation_size));
 
-	//erode(th, th, element);
+	erode(th, th, element);
 	dilate(th, th, element);
 	//erode(th, th, element);
 	th_display->setTo(Scalar(0, 0, 0), th);
@@ -74,7 +80,7 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
 
-    findContours( th, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+	findContours(th, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 
     // Create "drawable" threashold image
 
@@ -96,11 +102,12 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
         //approxPolyDP( Mat(contours[i]), contours_poly[i], 3, true );
         //boundRect[i] = boundingRect( Mat(contours_poly[i]) );
         minEnclosingCircle( contours[i], center[i], radius[i]);
+		circle(*th_display, center[i], radius[i], Scalar(255, 0, 255), 1);
         // Set nodes not grouped
         grouped_nodes[i] = false;
-        //sprintf (id_txt_buffer, "%d", i);
-        //putText(*th_display, id_txt_buffer, center[i],
-        //	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(100,10,250), 1, CV_AA);
+        sprintf (id_txt_buffer, "%d", i);
+        putText(*th_display, id_txt_buffer, center[i],
+        	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(100,10,250), 1, CV_AA);
     }
 
     list<node_group> groups;
@@ -149,11 +156,11 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 					cout << *it << " ";
 				cout << endl;
 				// Finally add the group to the list
-				if (new_group.nodes.size() == 4)
+				if (new_group.nodes.size() == NODEGROUP)
 				{
-					Point2f c[4];
-					int pi[4];
-					int angles[4][4];
+					Point2f c[NODEGROUP];
+					int pi[NODEGROUP];
+					int angles[NODEGROUP][NODEGROUP];
 					//vector<int> points;
 					int yai = 0;
 					set<int> hackaround;
@@ -165,9 +172,9 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 						yai += 1;
 					}
 					// For each node look at the angles to all the others
-					for (int a = 0; a < 4; a++)
+					for (int a = 0; a < NODEGROUP; a++)
 					{
-						for (int b = 0; b < 4; b++)
+						for (int b = 0; b < NODEGROUP; b++)
 						{
 							if (a != b)
 							{
@@ -177,12 +184,12 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 							}
 						}
 					}
-
-					for (int a = 0; a < 4; a++)
+					bool actually_found_group = false;
+					for (int a = 0; a < NODEGROUP; a++)
 					{
-						for (int b = 0; b < 4; b++)
+						for (int b = 0; b < NODEGROUP; b++)
 						{
-							for (int c = 0; c < 4; c++)
+							for (int c = 0; c < NODEGROUP; c++)
 							{
 								/*int test = (abs(angles[a][b]) + abs(angles[a][c]));
 								//cout << a << ": " << b << "->" << c << "=" << test << endl;
@@ -190,65 +197,63 @@ void detect_cfs(Mat * ir, Mat * depth, Mat * th_display, cf_instance* out) {
 								{
 									cout << a << ", " << b << ", " << c << " is the base (" << test << ")" << endl;
 								}*/
-								if (check_angles(angles[a][b], angles[a][c]) and hackaround.size() > 1)
+								if (check_angles(angles[a][b], angles[a][c]) and hackaround.size() > 2)
 								{
 									cout << "Base is " << pi[a] << "!!!" << endl;
 									circle(*th_display, center[pi[a]], radius[pi[a]], Scalar(0,255,0), 2);
 									hackaround.erase(a);
 									hackaround.erase(b);
 									hackaround.erase(c);
-									int tip = *(hackaround.begin());
-									cout << "Tip is " << tip << endl;
-									circle(*th_display, center[pi[tip]], radius[pi[tip]], Scalar(255,0,0), 2);
-									line(*th_display, center[pi[tip]], center[pi[a]], Scalar(0,0,255), 2);
-									Point2f pt;
-									Point2f depth_node;
-									cout << "Tip angle: " << angles[a][tip] << endl;
-									cout << "Tip angle: " << angles[a][tip]+180 << endl;
-                                    float mirror = angles[a][tip]+180;
-                                    double distance = norm(center[pi[tip]]-center[pi[a]]);
+									if (hackaround.size() > 0) {
+										int tip = *(hackaround.begin());
+										cout << "Tip is " << tip << endl;
+										circle(*th_display, center[pi[tip]], radius[pi[tip]], Scalar(255, 0, 0), 2);
+										line(*th_display, center[pi[tip]], center[pi[a]], Scalar(0, 0, 255), 2);
+										Point2f pt;
+										Point2f depth_node;
+										cout << "Tip angle: " << angles[a][tip] << endl;
+										cout << "Tip angle: " << angles[a][tip] + 180 << endl;
+										float mirror = angles[a][tip] + 180;
+										double distance = norm(center[pi[tip]] - center[pi[a]]);
 
-                                    depth_node.x = center[pi[a]].x - cos(mirror*PI/180)*distance;
-                                    depth_node.y = center[pi[a]].y - sin(mirror*PI/180)*distance;
-									pt.x = center[pi[a]].x - cos(angles[a][tip]*PI/180)*100;
-									pt.y = center[pi[a]].y - sin(angles[a][tip]*PI/180)*100;
-									line(*th_display, center[pi[a]], pt, Scalar(0,0,0), 2);
+										depth_node.x = center[pi[a]].x - cos(mirror*PI / 180)*distance;
+										depth_node.y = center[pi[a]].y - sin(mirror*PI / 180)*distance;
+										pt.x = center[pi[a]].x - cos(angles[a][tip] * PI / 180) * 100;
+										pt.y = center[pi[a]].y - sin(angles[a][tip] * PI / 180) * 100;
+										line(*th_display, center[pi[a]], pt, Scalar(0, 0, 0), 2);
 
-									circle(*th_display, depth_node, radius[pi[tip]], Scalar(150, 150, 150), 2);
-									//line(th_display, center[pi[a]], depth_node, Scalar(100,100,100), 2);
+										//circle(*th_display, depth_node, radius[pi[tip]], Scalar(150, 150, 150), 2);
+										//line(th_display, center[pi[a]], depth_node, Scalar(100,100,100), 2);
 
-                                    /*
-                                    circle(*th_display, depth_node, radius[pi[tip]], Scalar(150,150,150), 2);
-                                    void * bsh = (static_cast<void*>(depth->data));
-                                    float * data = (static_cast<float*>(bsh));
-                                    data += int(depth_node.y) * 512 + int(depth_node.x);
-                                    cout << "Depth " << *data << "mm (" << (*data)/10/100 << "m)"<< endl;
+										/*
+										circle(*th_display, depth_node, radius[pi[tip]], Scalar(150,150,150), 2);
+										void * bsh = (static_cast<void*>(depth->data));
+										float * data = (static_cast<float*>(bsh));
+										data += int(depth_node.y) * 512 + int(depth_node.x);
+										cout << "Depth " << *data << "mm (" << (*data)/10/100 << "m)"<< endl;
 
-                                    sprintf (id_txt_buffer, "%.2f", (*data)/10/100);
-                                    putText(*th_display, id_txt_buffer, depth_node,
-                                    	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(100,10,250), 1, CV_AA);*/
+										sprintf (id_txt_buffer, "%.2f", (*data)/10/100);
+										putText(*th_display, id_txt_buffer, depth_node,
+										FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(100,10,250), 1, CV_AA);*/
 
-                                    out->x = center[pi[a]].x;
-                                    out->y = center[pi[a]].y;
-                                    out->angle = (angles[a][tip] + 45 + 360) % 360;
-                                    out->x_d = depth_node.x;
-                                    out->y_d = depth_node.y;
-                                    out->found = true;
+										out->x = center[pi[a]].x;
+										out->y = center[pi[a]].y;
+										out->angle = (angles[a][tip] + 45 + 360) % 360;
+										out->x_d = depth_node.x;
+										out->y_d = depth_node.y;
+										out->found = true;
 
-					/*if (!sent) {
-            char json[200];
-            x=center[pi[a]].x; y=center[pi[a]].y; z=(*data)/10;
-            angle = angles[a][tip];
-  					sprintf(json, "{\"pos\": [%f, %f, %f], \"angle\": %f, \"detect\": true}", x, y, z, angle);
-  					zmq_send(m_socket, json, strlen(json), ZMQ_NOBLOCK);
-            sent = true;
-          }*/
+										actually_found_group = true;
+									}
 								}
 							}
 						}
 					}
-					cout << " -> OK" << endl;
-					groups.push_back(new_group);
+					if (actually_found_group) {
+						cout << " -> OK" << endl;
+						groups.push_back(new_group);
+					}
+
 				} else {
 					cout << " -> NOT OK, discarding group!" << endl;
 				}
