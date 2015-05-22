@@ -39,6 +39,9 @@
   <ItemGroup>
     <None Include="ClassDiagram.cd" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="license.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4556CB68-B48D-4C18-B29D-032B06DC7E8C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

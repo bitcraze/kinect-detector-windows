@@ -1,4 +1,4 @@
-DepthBasic files are Copyright (c) Microsoft Corporation
+DepthBasic.* and app.ico are Copyright (c) Microsoft Corporation
 See https://www.microsoft.com/en-us/kinectforwindows/develop/sdk-eula.aspx for license.
 
 All other files are:
