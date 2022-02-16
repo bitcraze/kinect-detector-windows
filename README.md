@@ -13,3 +13,7 @@ Dependencies:
  - The Microsoft Kinect for Windows SDK 2.0
  - ZeroMQ version 4.0.4 installed in default location. You may need to copy the ZeroMQ DLL in the project folder
  - Opencv 2.4.11 at location set in the environment variable $(OPENCV_DIR)
+
+## Contribute
+
+Go to [contribute page](https://www.bitcraze.io/contribute/) on our website to learn more.
