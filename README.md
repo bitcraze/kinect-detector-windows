@@ -1,4 +1,8 @@
 # kinect-detector-windows
+
+**This repository is not activly being maintained, but this might change in the future so feel free to make an issue to request a new functionality.**
+
+
 Crazyflie detector using Kinect 2. Windows implementation using Microsoft's Kinect SDK.
 This program detects the Crazyflie quadcopter and sends its position (x,y,z, angle) using a ZeroMQ socket. You can find more
 information about the system setup (ie. how to autonomously fly a Crazyflie) in the Bitcraze wiki: https://wiki.bitcraze.io/doc:crazyflie:vision:index
